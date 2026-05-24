@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from app.models import ReportListResponse, ReportPublic, ReportStatus
 from app.reports import query
@@ -32,7 +35,6 @@ def list_reports(
     Public fields only — `internal_id` and `owner_email` are stripped via
     `ReportPublic.from_internal`.
     """
-
     try:
         rows = query(
             status=status,
@@ -52,9 +54,6 @@ def list_reports(
         limit=limit,
     )
 
-    import csv
-import io
-from fastapi.responses import StreamingResponse
 
 @app.get("/reports/export")
 def export_reports(
@@ -65,7 +64,7 @@ def export_reports(
     descending: bool = Query(True, description="Sort descending"),
 ) -> StreamingResponse:
     """Export filtered and sorted reports as a CSV file.
-    
+
     Ensures security compliance by stripping internal_id and owner_email.
     """
     try:
@@ -83,10 +82,10 @@ def export_reports(
     # Create an in-memory string buffer for the CSV data
     stream = io.StringIO()
     writer = csv.writer(stream)
-    
+
     # Write CSV Header (Public fields only!)
     writer.writerow(["id", "title", "status", "owner", "amount", "created_at"])
-    
+
     # Write rows safely mapping through ReportPublic to strip sensitive data
     for r in rows:
         public_report = ReportPublic.from_internal(r)
@@ -98,10 +97,10 @@ def export_reports(
             public_report.amount,
             public_report.created_at.isoformat()
         ])
-        
+
     # Rewind buffer pointer to start
     stream.seek(0)
-    
+
     # Return as a downloadable CSV stream attachment
     return StreamingResponse(
         iter([stream.getvalue()]),
